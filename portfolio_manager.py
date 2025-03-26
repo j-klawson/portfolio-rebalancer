@@ -8,23 +8,41 @@ import json
 from email.mime.text import MIMEText
 from datetime import datetime
 import os
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.chart import LineChart, Reference
 from openpyxl.utils.dataframe import dataframe_to_rows
 
 CONFIG_FILE = "config.json"
 PORTFOLIO_FILE = "portfolio.csv"
-HISTORY_FILE = "portfolio_history.xlsx"
-REBALANCE_FILE = "rebalance_report.xlsx"
+EXCEL_FILE = "portfolio_output.xlsx"
 
 
 def load_config():
-    with open(CONFIG_FILE, 'r') as f:
-        return json.load(f)
+    try:
+        with open(CONFIG_FILE, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(f"❌ Configuration file '{CONFIG_FILE}' not found.")
+        exit(1)
+    except json.JSONDecodeError:
+        print(f"❌ Configuration file '{CONFIG_FILE}' is not valid JSON.")
+        exit(1)
 
 
 def load_portfolio(file_path):
-    return pd.read_csv(file_path)
+    try:
+        df = pd.read_csv(file_path)
+        required_cols = {'ticker', 'shares', 'target_pct'}
+        if not required_cols.issubset(df.columns):
+            print(f"❌ Portfolio file must contain columns: {required_cols}")
+            exit(1)
+        return df
+    except FileNotFoundError:
+        print(f"❌ Portfolio file '{file_path}' not found.")
+        exit(1)
+    except pd.errors.ParserError:
+        print(f"❌ Portfolio file '{file_path}' is not a valid CSV.")
+        exit(1)
 
 
 def get_price_from_yahoo(ticker):
@@ -58,36 +76,18 @@ def calculate_rebalance(df):
     return df, total_value
 
 
-def save_rebalance_to_excel(df):
-    df_out = df[['ticker', 'shares', 'price', 'value', 'actual_pct', 'target_pct',
-                 'deviation', 'rebalance_flag', 'shares_to_trade']]
-    df_out.to_excel(REBALANCE_FILE, index=False)
-    print(f"📄 Rebalance report saved to {REBALANCE_FILE}")
-
-
-def update_history_excel(df, total_value):
+def save_to_excel(df, total_value):
     snapshot = df[['ticker', 'price', 'value']].copy()
     snapshot['date'] = datetime.today().strftime('%Y-%m-%d')
     snapshot['total_value'] = total_value
 
-    if not os.path.exists(HISTORY_FILE):
-        with pd.ExcelWriter(HISTORY_FILE, engine='openpyxl') as writer:
-            snapshot.to_excel(writer, sheet_name='History', index=False)
-    else:
-        wb = load_workbook(HISTORY_FILE)
-        sheet = wb['History']
-        existing = pd.DataFrame(sheet.values)
-        existing.columns = existing.iloc[0]
-        existing = existing[1:]
+    with pd.ExcelWriter(EXCEL_FILE, engine='openpyxl') as writer:
+        df[['ticker', 'shares', 'price', 'value', 'actual_pct', 'target_pct',
+            'deviation', 'rebalance_flag', 'shares_to_trade']].to_excel(writer, sheet_name='Rebalance Report', index=False)
+        snapshot.to_excel(writer, sheet_name='History', index=False)
 
-        combined = pd.concat([existing, snapshot], ignore_index=True)
-        wb.remove(sheet)
-        new_sheet = wb.create_sheet('History')
-        for r in dataframe_to_rows(combined, index=False, header=True):
-            new_sheet.append(r)
-        wb.save(HISTORY_FILE)
-
-    add_chart_to_history(HISTORY_FILE)
+    print(f"📄 Portfolio data saved to {EXCEL_FILE}")
+    add_chart_to_history(EXCEL_FILE)
 
 
 def add_chart_to_history(file_path):
@@ -122,20 +122,23 @@ def add_chart_to_history(file_path):
 
     ws.add_chart(chart, "H2")
     wb.save(file_path)
-    print(f"📊 Portfolio value chart updated in {HISTORY_FILE}")
+    print(f"📊 Chart added to {file_path}")
 
 
 def send_email(subject, body, config):
-    msg = MIMEText(body)
-    msg['Subject'] = subject
-    msg['From'] = config["sender_email"]
-    msg['To'] = config["recipient_email"]
+    try:
+        msg = MIMEText(body)
+        msg['Subject'] = subject
+        msg['From'] = config["sender_email"]
+        msg['To'] = config["recipient_email"]
 
-    with smtplib.SMTP(config["smtp_server"], config["smtp_port"]) as server:
-        server.starttls()
-        server.login(config["sender_email"], config["email_password"])
-        server.sendmail(config["sender_email"], config["recipient_email"], msg.as_string())
-        print("📧 Email sent.")
+        with smtplib.SMTP(config["smtp_server"], config["smtp_port"]) as server:
+            server.starttls()
+            server.login(config["sender_email"], config["email_password"])
+            server.sendmail(config["sender_email"], config["recipient_email"], msg.as_string())
+            print("📧 Email sent.")
+    except Exception as e:
+        print(f"❌ Failed to send email: {e}")
 
 
 def check_and_notify(df, config):
@@ -155,8 +158,7 @@ def main():
     print(df[['ticker', 'shares', 'price', 'value', 'actual_pct', 'target_pct',
               'deviation', 'rebalance_flag', 'shares_to_trade']])
 
-    save_rebalance_to_excel(df)
-    update_history_excel(df, total_value)
+    save_to_excel(df, total_value)
     check_and_notify(df, config)
 
 
