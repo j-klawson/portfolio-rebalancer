@@ -52,4 +52,4 @@ python portfolio_manager.py
 
 ---
 
-PRs welcome. Built with 💼📊 and ☕️
+PRs welcome.
