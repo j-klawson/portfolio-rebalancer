@@ -5,7 +5,7 @@ This Python script tracks your stock portfolio, checks for rebalancing needs bas
 ## 🔧 Features
 
 - Pulls real-time prices from Yahoo Finance
-- Checks 5% threshold deviation from target allocations
+- Checks 5% threshold deviation from target allocations or average
 - Exports Excel reports and charts
 - Logs history and portfolio value snapshots
 - Sends email notifications if rebalancing is needed
