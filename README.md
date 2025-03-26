@@ -48,8 +48,7 @@ python portfolio_manager.py
 
 ## 📈 Output
 
-- `rebalance_report.xlsx`: your current portfolio + suggestions
-- `portfolio_history.xlsx`: ongoing tracking with chart
+- `portfolio_output.xlsx`: your current portfolio + suggestions
 
 ---
 
