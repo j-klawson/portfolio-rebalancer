@@ -66,13 +66,14 @@ def calculate_rebalance(df):
     total_value = df['value'].sum()
 
     df['actual_pct'] = df['value'] / total_value
-    df['target_pct'] = 1 / len(df)  # Equal weight by default
-    df['deviation'] = df['actual_pct'] - df['target_pct']
+    mean_pct = df['actual_pct'].mean()
+    df['target_pct'] = mean_pct  # for logging
+    df['deviation'] = df['actual_pct'] - mean_pct
     df['rebalance_flag'] = df['deviation'].abs() > 0.05
 
-    df['target_value'] = df['target_pct'] * total_value
-    df['rebalance_amount'] = df['target_value'] - df['value']
-    df['shares_to_trade'] = (df['rebalance_amount'] / df['price']).round()
+    df['target_value'] = df['value']  # No actual rebalancing done
+    df['rebalance_amount'] = 0
+    df['shares_to_trade'] = 0
 
     return df, total_value
 
