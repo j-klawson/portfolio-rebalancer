@@ -32,7 +32,7 @@ def load_config():
 def load_portfolio(file_path):
     try:
         df = pd.read_csv(file_path)
-        required_cols = {'ticker', 'shares', 'target_pct'}
+        required_cols = {'ticker', 'shares'}
         if not required_cols.issubset(df.columns):
             print(f"❌ Portfolio file must contain columns: {required_cols}")
             exit(1)
@@ -66,6 +66,7 @@ def calculate_rebalance(df):
     total_value = df['value'].sum()
 
     df['actual_pct'] = df['value'] / total_value
+    df['target_pct'] = 1 / len(df)  # Equal weight by default
     df['deviation'] = df['actual_pct'] - df['target_pct']
     df['rebalance_flag'] = df['deviation'].abs() > 0.05
 
