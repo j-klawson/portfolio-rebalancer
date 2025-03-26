@@ -1,0 +1,6 @@
+ticker,shares,target_pct
+VTI,100,0.25
+VOO,50,0.25
+VXUS,80,0.15
+BND,120,0.20
+VNQ,40,0.15
