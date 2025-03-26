@@ -1,4 +1,4 @@
-ticker,shares
+ticker,shares,purchase_date,purchase_price
 VTI,100
 VOO,50
 VXUS,80

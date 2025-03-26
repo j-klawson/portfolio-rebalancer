@@ -36,6 +36,13 @@ def load_portfolio(file_path):
         if not required_cols.issubset(df.columns):
             print(f"❌ Portfolio file must contain columns: {required_cols}")
             exit(1)
+
+        # Optional columns
+        if 'purchase_date' not in df.columns:
+            df['purchase_date'] = None
+        if 'purchase_price' not in df.columns:
+            df['purchase_price'] = None
+
         return df
     except FileNotFoundError:
         print(f"❌ Portfolio file '{file_path}' not found.")
@@ -66,14 +73,13 @@ def calculate_rebalance(df):
     total_value = df['value'].sum()
 
     df['actual_pct'] = df['value'] / total_value
-    mean_pct = df['actual_pct'].mean()
-    df['target_pct'] = mean_pct  # for logging
-    df['deviation'] = df['actual_pct'] - mean_pct
+    df['target_pct'] = df['actual_pct'].mean()  # use mean of current allocations as target
+    df['deviation'] = df['actual_pct'] - df['target_pct']
     df['rebalance_flag'] = df['deviation'].abs() > 0.05
 
-    df['target_value'] = df['value']  # No actual rebalancing done
-    df['rebalance_amount'] = 0
-    df['shares_to_trade'] = 0
+    df['target_value'] = df['target_pct'] * total_value
+    df['rebalance_amount'] = df['target_value'] - df['value']
+    df['shares_to_trade'] = (df['rebalance_amount'] / df['price']).round()
 
     return df, total_value
 
@@ -84,8 +90,9 @@ def save_to_excel(df, total_value):
     snapshot['total_value'] = total_value
 
     with pd.ExcelWriter(EXCEL_FILE, engine='openpyxl') as writer:
-        df[['ticker', 'shares', 'price', 'value', 'actual_pct', 'target_pct',
-            'deviation', 'rebalance_flag', 'shares_to_trade']].to_excel(writer, sheet_name='Rebalance Report', index=False)
+        df[['ticker', 'shares', 'purchase_date', 'purchase_price', 'price', 'value',
+            'actual_pct', 'target_pct', 'deviation', 'rebalance_flag', 'shares_to_trade']].to_excel(
+            writer, sheet_name='Rebalance Report', index=False)
         snapshot.to_excel(writer, sheet_name='History', index=False)
 
     print(f"📄 Portfolio data saved to {EXCEL_FILE}")
