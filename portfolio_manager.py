@@ -2,12 +2,14 @@
 
 import pandas as pd
 import requests
+import yfinance as yf
 from bs4 import BeautifulSoup
 import smtplib
 import json
 from email.mime.text import MIMEText
 from datetime import datetime
 import os
+import sys
 from openpyxl import Workbook, load_workbook
 from openpyxl.chart import LineChart, Reference
 from openpyxl.utils.dataframe import dataframe_to_rows
@@ -15,6 +17,12 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 CONFIG_FILE = "config.json"
 PORTFOLIO_FILE = "portfolio.csv"
 EXCEL_FILE = "portfolio_output.xlsx"
+DEBUG = "-debug" in sys.argv
+
+
+def log_debug(message):
+    if DEBUG:
+        print(f"[DEBUG] {message}")
 
 
 def load_config():
@@ -58,13 +66,25 @@ def get_price_from_yahoo(ticker):
     r = requests.get(url, headers=headers)
     soup = BeautifulSoup(r.text, 'html.parser')
     price_span = soup.find("fin-streamer", {"data-field": "regularMarketPrice"})
+    log_debug(f"Price span: {price_span}")
+    price = float(price_span.text.replace(',', ''))
+    log_debug(f"Ticker: {ticker} Price: {price}")
     if price_span:
-        return float(price_span.text.replace(',', ''))
+        return price
     raise ValueError(f"Couldn't get price for {ticker}")
 
 
 def fetch_prices(tickers):
-    return [get_price_from_yahoo(ticker) for ticker in tickers]
+    prices = []
+    for ticker in tickers:
+        try:
+            price = yf.Ticker(ticker).info["regularMarketPrice"]
+            prices.append(price)
+        except Exception as e:
+            print(f"❌ Failed to fetch price for {ticker}: {e}")
+            prices.append(None)
+    log_debug(f"Fetched prices: {dict(zip(tickers, prices))}")
+    return prices
 
 
 def calculate_rebalance(df):
@@ -81,6 +101,8 @@ def calculate_rebalance(df):
     df['rebalance_amount'] = df['target_value'] - df['value']
     df['shares_to_trade'] = (df['rebalance_amount'] / df['price']).round()
 
+    log_debug("Rebalance DataFrame:")
+    log_debug(df.to_string())
     return df, total_value
 
 
