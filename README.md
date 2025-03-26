@@ -14,7 +14,9 @@ This Python script tracks your stock portfolio, checks for rebalancing needs bas
 
 ### 1. Install Requirements
 ```bash
-pip install pandas requests beautifulsoup4 openpyxl
+python -m venv venv
+pip install -r requirements.txt
+source venv/bin/activate
 ```
 
 ### 2. Create `portfolio.csv`
